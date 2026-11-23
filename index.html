@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Franke A600 · Cleaning check</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="stage"></div>
+
+  <header id="hud">
+    <div class="hud-card">
+      <div class="hud-title">Franke A600 · Cleaning check</div>
+      <div class="hud-row">
+        <span id="timer">00:00</span>
+        <span id="misstep" class="misstep" hidden>Missteps: 0</span>
+      </div>
+    </div>
+    <nav class="views" aria-label="Camera views">
+      <button data-view="overview">Overview</button>
+      <button data-view="screen">Touchscreen</button>
+      <button data-view="cooling">Cooling unit</button>
+      <button data-view="top">Top</button>
+      <button data-view="sink">Sink</button>
+    </nav>
+    <div class="hud-actions">
+      <button id="hintBtn" class="ghost">Hint</button>
+      <button id="restartTop" class="ghost">Restart</button>
+    </div>
+  </header>
+  <div id="hintBox" class="hint-box" hidden></div>
+  <div class="tip">Drag to orbit · scroll to zoom · right-drag to pan · click parts to interact</div>
+
+  <aside id="facil" hidden>
+    <h4>Facilitator</h4>
+    <ol id="facil-list"></ol>
+  </aside>
+
+  <section id="intro" class="overlay">
+    <div class="intro-card">
+      <p class="eyebrow">Hands-on check</p>
+      <h1>Clean the Franke A600</h1>
+      <p>You've been asked to carry out the complete cleaning procedure on this Franke A600 coffee machine with its cooling unit.</p>
+      <p>There are no on-screen instructions. Work through the machine the way you would in real life: use the touchscreen, then the parts of the machine itself.</p>
+      <p class="small">Tip: the view buttons at the top get you close to the touchscreen, the cooling unit and the sink.</p>
+      <button id="startBtn" class="btn primary big">Start</button>
+    </div>
+  </section>
+
+  <div id="panel" class="overlay" hidden></div>
+  <section id="results" class="overlay" hidden></section>
+
+  <div id="loadError" class="overlay" hidden>
+    <div class="intro-card">
+      <h1>Couldn't load the 3D engine</h1>
+      <p>This page loads three.js from a CDN (cdn.jsdelivr.net). Check your connection or content blocker and reload. To host three.js yourself, see the README.</p>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+  <script>
+    setTimeout(function () {
+      if (!window.__appReady) document.getElementById('loadError').hidden = false;
+    }, 8000);
+  </script>
+</body>
+</html>
