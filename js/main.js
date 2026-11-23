@@ -10,38 +10,24 @@ const $ = (id) => document.getElementById(id);
 const q = new URLSearchParams(location.search);
 const cfg = { ...CONFIG };
 if (q.get('unit')) cfg.coolingUnit = q.get('unit').toUpperCase() === 'SU12' ? 'SU12' : 'SU05';
-if (q.get('feedback')) cfg.feedback = q.get('feedback') === 'none' ? 'none' : 'subtle';
 if (q.get('strictpin') === '1') cfg.strictPin = true;
 if (q.get('hints') === '0') cfg.allowHints = false;
 const facilitator = q.get('facilitator') === '1';
+const detailedResults = q.get('results') === '1';
 
 // ---- core objects ---------------------------------------------------------------
 const proc = new Procedure(cfg);
 const screen = new Touchscreen(cfg, onScreenEvent);
 const scene = new SceneApp($('stage'), { touchscreen: screen, coolingUnit: cfg.coolingUnit, onPart });
 const panel = new SinkPanel($('panel'), proc, {
-  onWrong: flashMisstep,
-  onDone: () => { scene.markClean(); refreshFacilitator(); },
+  onWashed: () => { scene.markClean(); refreshFacilitator(); },
+  onReassemble: reassembleAll,
 });
 
 // ---- HUD ------------------------------------------------------------------------
 function fmt(ms) {
   const s = Math.floor(ms / 1000);
   return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
-}
-
-function updateTimer() {
-  $('timer').textContent = fmt(proc.elapsed());
-}
-setInterval(updateTimer, 250);
-
-function flashMisstep() {
-  if (cfg.feedback !== 'subtle') return;
-  const el = $('misstep');
-  el.textContent = `Missteps: ${proc.totalWrong}`;
-  el.classList.remove('flash');
-  void el.offsetWidth;
-  el.classList.add('flash');
 }
 
 function refreshFacilitator() {
@@ -58,8 +44,6 @@ function refreshFacilitator() {
 }
 
 function setupHud() {
-  $('misstep').hidden = cfg.feedback !== 'subtle';
-  $('misstep').textContent = 'Missteps: 0';
   $('hintBtn').hidden = !cfg.allowHints;
   $('hintBox').hidden = true;
   $('facil').hidden = !facilitator;
@@ -69,7 +53,6 @@ function setupHud() {
 // ---- event routing ----------------------------------------------------------------
 function applyResult(r, partId) {
   if (r.outcome === 'wrong') {
-    flashMisstep();
     if (partId) scene.nudge(partId);
   } else if (r.effect === 'open_panel') {
     panel.open();
@@ -99,14 +82,35 @@ function start() {
 }
 
 let finished = false;
-function finish() {
+function finish(delay = 1400) {
   if (finished) return;
   finished = true;
   screen.showComplete();
-  setTimeout(showResults, 1400);
+  setTimeout(showResults, delay);
+}
+
+// "Reassemble everything" button in the wash station: lid on, then hose on, then done.
+function reassembleAll() {
+  const r = proc.reassemble();
+  if (!r.ok) return;
+  r.effects.forEach((e, i) => setTimeout(() => scene.applyEffect(e), i * 800));
+  refreshFacilitator();
+  finish(800 * r.effects.length + 1200);
 }
 
 function showResults() {
+  if (!detailedResults) {
+    $('results').innerHTML = `
+      <div class="results-card done-card">
+        <div class="big-check">✓</div>
+        <h2>Process complete</h2>
+        <p>The cleaning procedure is finished.</p>
+        <div class="panel-actions"><button class="btn primary" id="restartBtn">Run again</button></div>
+      </div>`;
+    $('results').hidden = false;
+    $('restartBtn').addEventListener('click', restart);
+    return;
+  }
   const s = proc.summary();
   const rows = s.steps
     .map((st) => `<tr><td>${st.n}</td><td>${st.title}</td><td>${st.wrong ? `<span class="bad">${st.wrong}</span>` : '<span class="ok">0</span>'}</td><td>${st.ms == null ? '–' : fmt(st.ms)}</td></tr>`)
@@ -151,7 +155,6 @@ function restart() {
   $('hud').classList.remove('live');
   $('intro').hidden = false;
   $('hintBox').hidden = true;
-  $('timer').textContent = '00:00';
   setupHud();
 }
 

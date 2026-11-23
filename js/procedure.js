@@ -43,8 +43,6 @@ export const ACTION_LABELS = {
   'part:grounds': 'Touched the grounds drawer',
   'part:outlet': 'Touched the beverage outlet',
   'part:brew_door': 'Touched the front service door',
-  'panel:selection': 'Chose the wrong set of parts to clean',
-  'panel:method': 'Wrong order in the 5-step cleaning method',
 };
 
 // Screen events that make up the on-path navigation, mapped to the step they satisfy.
@@ -62,17 +60,8 @@ const SCREEN_NEUTRAL = new Set([
   'pin_digit', 'pin_back', 'pin_cancel', 'wizard_next', 'cmenu_back', 'nav',
 ]);
 
-export const METHOD_ORDER = ['dirt', 'soak', 'wash', 'rinse', 'dry'];
-export const METHOD_LABELS = {
-  dirt: 'Remove loose dirt',
-  soak: 'Soak with hot water and mild cleaner',
-  wash: 'Wash',
-  rinse: 'Rinse thoroughly',
-  dry: 'Dry thoroughly',
-};
-
-// Everything the 5-step method applies to (from step 11 of the PDF), plus decoys.
-export const PART_CHOICES = {
+// Everything that gets washed in step 11 of the PDF.
+export const WASH_LABELS = {
   chamber: 'Inner surfaces of the cooling chamber',
   door: 'Inner side of the door and lip seal',
   container_lid: 'Milk container and lid',
@@ -80,12 +69,9 @@ export const PART_CHOICES = {
   bean_hopper: 'Bean hopper',
   powder_hopper: 'Powder hoppers',
   adapters: 'Reversible adapters',
-  brew_unit: 'Brew unit',
-  drip_tray: 'Drip tray',
-  grounds: 'Grounds drawer',
-  touchscreen: 'Touchscreen',
 };
 
+// What the wash station lists for the installed cooling unit.
 export function correctParts(unit) {
   const base = ['chamber', 'door', 'container_lid', 'hose', 'bean_hopper', 'powder_hopper'];
   if (unit === 'SU12') base.push('adapters'); // "If your model is SU12, also clean the reversible adapters"
@@ -120,7 +106,7 @@ export class Procedure {
       hoppers: { bean_l: false, bean_r: false, powder: false },
       cleaned: false,
     };
-    this.panel = { phase: 'select', methodIdx: 0 };
+    this.panel = { washed: [] };
   }
 
   start() {
@@ -260,7 +246,8 @@ export class Procedure {
       }
 
       case 'sink': {
-        if (step === 11) return this._neutral(kind, 'open_panel');
+        // the wash station is reachable once the parts have been taken apart and emptied
+        if (step >= 11 && step <= 13) return this._neutral(kind, 'open_panel');
         if (p.cleaned) return this._neutral(kind);
         return this._wrong(kind);
       }
@@ -277,36 +264,40 @@ export class Procedure {
     return null;
   }
 
-  // ---- wash station panel (step 11) ----------------------------------------
-  submitSelection(ids) {
-    if (this.step !== 11) return { ok: false };
-    const want = new Set(correctParts(this.cfg.coolingUnit));
-    const got = new Set(ids);
-    const ok = want.size === got.size && [...want].every((x) => got.has(x));
-    if (!ok) {
-      this._wrong('panel:selection');
-      return { ok: false };
+  // ---- wash station (step 11) -----------------------------------------------
+  // The station only lists items that need washing, so there is nothing to get wrong:
+  // washing the last one completes step 11.
+  washItem(id) {
+    const items = correctParts(this.cfg.coolingUnit);
+    if (this.step !== 11 || !items.includes(id)) return { ok: false, allDone: false };
+    if (!this.panel.washed.includes(id)) this.panel.washed.push(id);
+    const allDone = items.every((x) => this.panel.washed.includes(x));
+    if (allDone) {
+      this.phys.cleaned = true;
+      this._record('panel:wash', 'ok');
+      this._complete(11);
     }
-    this._record('panel:selection', 'ok');
-    this.panel.phase = 'method';
-    this.panel.methodIdx = 0;
-    return { ok: true };
+    return { ok: true, allDone };
   }
 
-  tapMethod(id) {
-    if (this.step !== 11 || this.panel.phase !== 'method') return { ok: false, finished: false };
-    if (id === METHOD_ORDER[this.panel.methodIdx]) {
-      this.panel.methodIdx += 1;
-      if (this.panel.methodIdx >= METHOD_ORDER.length) {
-        this.phys.cleaned = true;
-        this._record('panel:method', 'ok');
-        this._complete(11);
-        return { ok: true, finished: true };
-      }
-      return { ok: true, finished: false };
+  // "Reassemble everything": puts the lid on and the hose back (steps 12 and 13).
+  // Returns the scene effects to play, in order.
+  reassemble() {
+    if (this.step !== 12 && this.step !== 13) return { ok: false, effects: [] };
+    const p = this.phys;
+    const effects = [];
+    if (!p.lidOn) {
+      p.lidOn = true;
+      effects.push('lid_on');
     }
-    this._wrong('panel:method');
-    return { ok: false, finished: false };
+    if (this.step === 12) this._complete(12);
+    if (!p.hoseOn) {
+      p.hoseOn = true;
+      effects.push('hose_on');
+    }
+    this._record('panel:reassemble', 'ok');
+    this._complete(13);
+    return { ok: true, effects };
   }
 
   summary() {

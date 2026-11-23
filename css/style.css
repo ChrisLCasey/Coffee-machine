@@ -105,3 +105,9 @@ td:first-child, th:first-child { width: 28px; }
   .panel-grid { grid-template-columns: 1fr; }
   .tip { display: none; }
 }
+
+.done-card { text-align: center; max-width: 420px; }
+.done-card p { margin: 6px 0 10px; opacity: .8; }
+.done-card .panel-actions { justify-content: center; }
+.big-check { width: 72px; height: 72px; margin: 0 auto 10px; border-radius: 50%; background: var(--ok); color: #fff;
+  display: grid; place-items: center; font-size: 40px; font-weight: 700; }
